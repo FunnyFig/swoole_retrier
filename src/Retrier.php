@@ -8,8 +8,10 @@ require_once 'vendor/autoload.php';
 use FunnyFig\Swoole\Timer;
 
 class Retrier {
-	protected const MIN_WAIT_MS = 10;
-	protected const MAX_WAIT_MS = 100;
+	protected const DEF_MIN_WAIT_MS = 10;
+	protected const DEF_MAX_WAIT_MS = 100;
+	protected $min_wait_ms;
+	protected $max_wait_ms;
 
 	protected $proc;
 	protected $timeout;
@@ -19,9 +21,9 @@ class Retrier {
 	protected $n_tries = 0;
 	protected $timer;
 
-	static function try(callable $proc, int $timeout=3000, $nchan=false)
+	static function try(callable $proc, int $timeout=3000, $nchan=false, $opt=[])
 	{
-		return new Retrier($proc, $timeout, $nchan);
+		return new Retrier($proc, $timeout, $nchan, $opt);
 	}
 
 	function chan()
@@ -34,8 +36,17 @@ class Retrier {
 		$this->timer->stop();
 	}
 
-	protected function __construct(callable $proc, int $timeout, $nchan)
+	protected function __construct(callable $proc, int $timeout, $nchan, $opt)
 	{
+		$this->min_wait_ms = $opt['min'] ?? self::DEF_MIN_WAIT_MS;
+		$this->max_wait_ms = $opt['max'] ?? self::DEF_MAX_WAIT_MS;
+		if ( $this->min_wait_ms <= 0
+		  || $this->max_wait_ms <= 0
+		  || $this->min_wait_ms > $this->max_wait_ms)
+		{
+			throw new \InvalidArgumentException();
+		}
+
 		$this->proc = $proc;
 		$this->timeout = $timeout;
 
@@ -44,6 +55,7 @@ class Retrier {
 				    function push() {}
 				    function pop() {}
 			    };
+
 		$this->sw = new StopWatch();
 		$this->sw->start();
 
@@ -69,48 +81,18 @@ class Retrier {
 		$ms_left = $this->timeout - $this->sw->lap();
 
 		if ($ms_left <= 0) {
-			// FIXME: push exception
 			$this->chan->push(new TimedOut());
 			$this->timer->stop();
 			return 0;
 		}
 
-		$min = min( (int)(self::MIN_WAIT_MS* 1.5 ** $this->n_tries++)
-			  , self::MAX_WAIT_MS);
-		$max = min($min*2, self::MAX_WAIT_MS);
+		$min = min( (int)($this->min_wait_ms* 1.5 ** $this->n_tries++)
+			  , $this->max_wait_ms);
+		$max = min($min*2, $this->max_wait_ms);
 
 		return min($ms_left, random_int($min, $max));
 	}
 }
-
-
-
-
-
-//if (!debug_backtrace()) {
-//	$t = Retrier::try(function () {
-//		static $count = 0;
-//		if ($count++ == 10) {
-//			return 'found';
-//		}
-//		return "routine";
-//	});
-//
-//	$sw = new StopWatch();
-//	$sw->start();
-//
-//	go(function () use($t, $sw) {
-//		// pop return false
-//		while (!(($rv = $t->chan()->pop()) instanceof Throwable)) {
-//			if ($rv === 'found') {
-//				$t->stop();
-//				break;
-//			}
-//			echo $sw->lap().": $rv\n";
-//		}
-//	});
-//}
-
 
 if (!debug_backtrace()) {
 	$t = Retrier::try(function ($t) {

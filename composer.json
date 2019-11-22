@@ -1,7 +1,9 @@
 {
     "name": "funnyfig/swoole_retrier",
     "description": "repeatedly run a callable until stop called or timed-out. retry delay algorithm is borrowed from malkusch/lock Loop",
+    "version": "1.0.0",
     "type": "library",
+    "keywords": ["swoole", "coroutine", "retry"],
     "license": "MIT",
     "authors": [
         {
@@ -10,24 +12,13 @@
         }
     ],
     "require": {
-	    "php": ">=7.1",
-	    "ext-swoole": ">=4.4.2",
-	    "funnyfig/swoole_thread": "dev-master",
-	    "funnyfig/swoole_timer": "dev-master"
+        "php": ">=7.1",
+        "ext-swoole": ">=4.4.2",
+        "funnyfig/swoole_timer": "^1.0"
     },
     "autoload": {
 	    "psr-4": {
 		    "FunnyFig\\Swoole\\": "src"
 	    }
-    },
-    "repositories": [
-	    {
-		    "type": "vcs",
-		    "url": "https://github.com/FunnyFig/swoole_thread"
-	    },
-	    {
-		    "type": "vcs",
-		    "url": "https://github.com/FunnyFig/swoole_timer"
-	    }
-    ]
+    }
 }
